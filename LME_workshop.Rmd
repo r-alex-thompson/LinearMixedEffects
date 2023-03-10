@@ -28,14 +28,18 @@ library(ggeffects) # for plotting the GEE results
 # change this to your file path
 setwd("/Users/alexthompson/Dropbox/PhD data/Stats stuff/Mixed Effects workshop 2023") 
 
+setwd("C:/Users/robert.a.thompson/Dropbox/PhD data/Stats stuff/Mixed Effects workshop 2023") 
+
+
+
 data<-read.csv("data.csv")
 
 ```
   
 
-First, let's look at our data and do some basic linear model stuff
+First, let's look at our data 
 
-``` {r linear model 1}
+``` {r data overview}
 
 head(data) # take a look at the data
 
@@ -43,8 +47,16 @@ head(data) # take a look at the data
 p1<-ggplot(data,aes(x,y)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
 p1
 
+```
+
+``` {r lm}
 # let's estimate a linear model on the data and put numbers to what we see in the figure
 summary(lm(y~x,data))
+
+```
+
+
+``` {r group level look}
 
 
 p2<-ggplot(data,aes(x,y,color=group)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
@@ -53,8 +65,10 @@ p2
 summary(lm(y~x*group,data))
 coef(aov(y~x*group,data))
 summary(aov(y~x*group,data))
+```
 
 
+``` {r individual level look}
 p3<-ggplot(data,aes(x,y,color=i)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
 p3
 
@@ -66,37 +80,43 @@ summary(lm(y~x*i,data))
   
 Let's start with Linear Mixed Effects Models. INSERT A DISCUSSION OF THIS.  
   
-``` {r LME}
+``` {r LME intercept only}
 
 # intercept only random model
 mod1<-lmer(y~x+(1|i),data=data)
 mod1
 summary(mod1)
 
+```
+
+``` {r LME slope only}
+
 # slope only random model
 mod2<-lmer(y~x+(0 + x|i),data=data)
 mod2
 summary(mod2)
 
-# slope only random model
+```
+
+``` {r LME slope and intercept}
+# slope and intercept random model
 mod3<-lmer(y~x+(1 + x|i),data=data)
 mod3
 summary(mod3)
+```
 
 
+``` {r visualizing LME}
 # visualizing LME
 ggplot(data,aes(x,y)) + geom_point() +
   geom_smooth(method="lm",color="black",mapping=aes(y=predict(mod3,data))) + # this part plots the marginal linear model after accounting for all of the individual variation
   geom_smooth(method="lm",mapping=aes(x,y,color=i),linewidth=0.5) + # but we also want to show individual responses from our mixed effects model so we include a new mapping that incorporates individual-level as well
   theme_minimal()
-
-
-
 ```
   
 A standard linear mixed effects model works well in the case of continuous data. What happens if we have count, or presence absence data? As with standard linear models, we can use a $generalized$ model.  
   
-``` {r GLM}
+``` {r GLM read and view}
 # read in data for GLM
 countdata<-read.csv("count_data.csv")%>%
   mutate(Date=paste(1,Month,Year,sep="-"))
@@ -107,26 +127,44 @@ head(countdata)
 ggplot(countdata,aes(Date,Dead,color=Site,group=Site)) + geom_point() + geom_line()+ theme_minimal()
 
 
+```
+
+``` {r fit GLM1}
 # let's fit a GLM to our data
 # month as random effect
 glm1<-glmer(Dead~Site+(1|Month),family="poisson",data=countdata)
 summary(glm1)
+```
 
+``` {r fit GLM2}
 # year as random effect
 glm2<-glmer(Dead~Site+(1|Year),family="poisson",data=countdata)
 summary(glm2)
+```
 
+``` {r fit GLM3}
 # date (month and year) as random effect
 glm3<-glmer(Dead~Site+(1|Date),family="poisson",data=countdata)
 summary(glm3)
+```
 
-
+``` {r GLM viz pooled}
 # visualizing GLMMs
 ggplot(countdata,aes(Date,Dead,color=Site,group=Site)) + 
   geom_point() + 
   geom_line()+ 
   geom_smooth(method="glm")+
   theme_minimal()
+
+```
+
+``` {r GLM viz Year}
+
+ggplot(countdata,aes(Date,Dead,color=Site,group=Year)) +
+  geom_point() +
+  geom_smooth(method="glm") +
+  theme_minimal() +
+  facet_wrap(~Site)
 
 ```
   
