@@ -1,0 +1,145 @@
+---
+title: "LME_Workshop"
+author: "R. Alex Thompson"
+date: "2/27/2023"
+output: pdf_document
+---
+
+First, we're going to import all of the libraries needed today, along with our toy data. Uncomment the lines if you need install the packages and remember to recomment them once installed. Otherwise, installation will occur every time you use this document.   
+  
+``` {r setup}
+
+# install packages
+#install.packages('dplyr')
+#install.packages('ggplot2')
+#install.packages('lme4')
+#install.packages('gee')
+#install.packages('ggeffects')
+
+# load libraries
+library(dplyr) # for manipulating our data
+library(ggplot2) # for visualization
+library(lme4) # for linear mixed models
+library(gee)# for general estimation models
+library(ggeffects) # for plotting the GEE results
+
+
+# to read the data in, we want to set the working directory
+# change this to your file path
+setwd("/Users/alexthompson/Dropbox/PhD data/Stats stuff/Mixed Effects workshop 2023") 
+
+data<-read.csv("data.csv")
+
+```
+  
+
+First, let's look at our data and do some basic linear model stuff
+
+``` {r linear model 1}
+
+head(data) # take a look at the data
+
+# this plots all of the data on an x,y plane and fits a simple linear function to it
+p1<-ggplot(data,aes(x,y)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
+p1
+
+# let's estimate a linear model on the data and put numbers to what we see in the figure
+summary(lm(y~x,data))
+
+
+p2<-ggplot(data,aes(x,y,color=group)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
+p2
+
+summary(lm(y~x*group,data))
+coef(aov(y~x*group,data))
+summary(aov(y~x*group,data))
+
+
+p3<-ggplot(data,aes(x,y,color=i)) + geom_point() + geom_smooth(method="lm") + theme_minimal()
+p3
+
+summary(lm(y~x*i,data))
+
+
+```
+
+  
+Let's start with Linear Mixed Effects Models. INSERT A DISCUSSION OF THIS.  
+  
+``` {r LME}
+
+# intercept only random model
+mod1<-lmer(y~x+(1|i),data=data)
+mod1
+summary(mod1)
+
+# slope only random model
+mod2<-lmer(y~x+(0 + x|i),data=data)
+mod2
+summary(mod2)
+
+# slope only random model
+mod3<-lmer(y~x+(1 + x|i),data=data)
+mod3
+summary(mod3)
+
+
+# visualizing LME
+ggplot(data,aes(x,y)) + geom_point() +
+  geom_smooth(method="lm",color="black",mapping=aes(y=predict(mod3,data))) + # this part plots the marginal linear model after accounting for all of the individual variation
+  geom_smooth(method="lm",mapping=aes(x,y,color=i),linewidth=0.5) + # but we also want to show individual responses from our mixed effects model so we include a new mapping that incorporates individual-level as well
+  theme_minimal()
+
+
+
+```
+  
+A standard linear mixed effects model works well in the case of continuous data. What happens if we have count, or presence absence data? As with standard linear models, we can use a $generalized$ model.  
+  
+``` {r GLM}
+# read in data for GLM
+countdata<-read.csv("count_data.csv")%>%
+  mutate(Date=paste(1,Month,Year,sep="-"))
+countdata$Date<-as.Date(countdata$Date,format="%d-%B-%Y")
+head(countdata)
+
+# take a quick look at the data
+ggplot(countdata,aes(Date,Dead,color=Site,group=Site)) + geom_point() + geom_line()+ theme_minimal()
+
+
+# let's fit a GLM to our data
+# month as random effect
+glm1<-glmer(Dead~Site+(1|Month),family="poisson",data=countdata)
+summary(glm1)
+
+# year as random effect
+glm2<-glmer(Dead~Site+(1|Year),family="poisson",data=countdata)
+summary(glm2)
+
+# date (month and year) as random effect
+glm3<-glmer(Dead~Site+(1|Date),family="poisson",data=countdata)
+summary(glm3)
+
+
+# visualizing GLMMs
+ggplot(countdata,aes(Date,Dead,color=Site,group=Site)) + 
+  geom_point() + 
+  geom_line()+ 
+  geom_smooth(method="glm")+
+  theme_minimal()
+
+```
+  
+Now, a special case of mixed-effects models is a general estimation equation. Unlike a mixed-effects model where we get subject-level estimates, a GEE integrates out these subject-level variances and instead gives a population effect. 
+
+``` {r GEE}
+# make a general estimation equation
+data<-arrange(data,i)
+data$i<-as.factor(data$i)
+gee_mod<-gee(y~x*group,
+             data=data,
+             id=i,
+             family="gaussian",
+             corstr="AR-M",Mv=1)
+summary(gee_mod)
+```
